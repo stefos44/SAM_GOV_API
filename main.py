@@ -8,17 +8,12 @@ app = FastAPI()
 SAM_API_KEY = os.getenv("SAM_API_KEY")
 SAM_BASE_URL = "https://api.sam.gov/prod/opportunities/v2/search"
 
-@app.get("/")
-def root():
-    return {"message": "SAM.gov API is running!"}
-
 @app.get("/get_sam_tenders")
 def get_sam_tenders(
     keyword: str,
     posted_from: str = Query(None, description="Start date (YYYY-MM-DD)"),
     posted_to: str = Query(None, description="End date (YYYY-MM-DD)")
 ):
-    # If no dates are provided, default to last 7 days
     if not posted_from:
         posted_from = (datetime.utcnow() - timedelta(days=7)).strftime("%m/%d/%Y")
     else:
@@ -34,12 +29,27 @@ def get_sam_tenders(
         "q": keyword,
         "postedFrom": posted_from,
         "postedTo": posted_to,
-        "limit": 10
+        "limit": 5
     }
-    
+
     response = requests.get(SAM_BASE_URL, params=params)
-    
+
     if response.status_code != 200:
         return {"error": response.status_code, "message": response.text}
     
-    return response.json()
+    data = response.json()
+
+    # Extract relevant fields for GPT
+    tenders = [
+        {
+            "title": tender["title"],
+            "solicitationNumber": tender["solicitationNumber"],
+            "postedDate": tender["postedDate"],
+            "responseDeadline": tender["responseDeadLine"],
+            "naicsCode": tender["naicsCode"],
+            "uiLink": tender["uiLink"]
+        }
+        for tender in data.get("opportunitiesData", [])
+    ]
+
+    return {"total_tenders": data["totalRecords"], "tenders": tenders}
