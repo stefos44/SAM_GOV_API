@@ -20,9 +20,14 @@ def get_sam_tenders(
 ):
     # If no dates are provided, default to last 7 days
     if not posted_from:
-        posted_from = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
+        posted_from = (datetime.utcnow() - timedelta(days=7)).strftime("%m/%d/%Y")
+    else:
+        posted_from = datetime.strptime(posted_from, "%Y-%m-%d").strftime("%m/%d/%Y")
+
     if not posted_to:
-        posted_to = datetime.utcnow().strftime("%Y-%m-%d")
+        posted_to = datetime.utcnow().strftime("%m/%d/%Y")
+    else:
+        posted_to = datetime.strptime(posted_to, "%Y-%m-%d").strftime("%m/%d/%Y")
 
     params = {
         "api_key": SAM_API_KEY,
