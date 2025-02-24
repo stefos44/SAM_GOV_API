@@ -13,8 +13,10 @@ def get_sam_tenders(
     keyword: str,
     posted_from: str = Query(None, description="Start date (YYYY-MM-DD)"),
     posted_to: str = Query(None, description="End date (YYYY-MM-DD)"),
-    limit: int = Query(1000, description="Number of tenders to fetch (max 1000)")
+    limit: int = Query(1000, description="Number of tenders to fetch (max 1000)"),
+    pages: int = Query(1, description="Number of pages to fetch")
 ):
+    # ✅ Default to last 30 days if no date provided
     if not posted_from:
         posted_from = (datetime.utcnow() - timedelta(days=30)).strftime("%m/%d/%Y")
     else:
@@ -25,33 +27,42 @@ def get_sam_tenders(
     else:
         posted_to = datetime.strptime(posted_to, "%Y-%m-%d").strftime("%m/%d/%Y")
 
-    params = {
-        "api_key": SAM_API_KEY,
-        "keywords": keyword,  # ✅ Use "keywords" instead of "q"
-        "postedFrom": posted_from,
-        "postedTo": posted_to,
-        "limit": min(limit, 1000),
-        "nocache": datetime.utcnow().strftime("%Y%m%d%H%M%S"),  # ✅ Prevent caching
-        "start": 0  # ✅ Ensure you're getting the first set of tenders
-    }
+    keyword = f'"{keyword}"'  # ✅ Force exact match search
+    tenders = []
 
-    response = requests.get(SAM_BASE_URL, params=params)
-
-    if response.status_code != 200:
-        return {"error": response.status_code, "message": response.text}
-    
-    data = response.json()
-
-    tenders = [
-        {
-            "title": tender.get("title", "N/A"),
-            "solicitationNumber": tender.get("solicitationNumber", "N/A"),
-            "postedDate": tender.get("postedDate", "N/A"),
-            "responseDeadline": tender.get("responseDeadLine", "N/A"),
-            "naicsCode": tender.get("naicsCode", "N/A"),
-            "uiLink": tender.get("uiLink", "N/A")
+    for page in range(pages):  # ✅ Fetch multiple pages to get different tenders
+        params = {
+            "api_key": SAM_API_KEY,
+            "keywords": keyword,  # ✅ Ensures the filter applies
+            "postedFrom": posted_from,
+            "postedTo": posted_to,
+            "limit": min(limit, 1000),
+            "start": page * limit,  # ✅ Pagination fix
+            "nocache": datetime.utcnow().strftime("%Y%m%d%H%M%S")  # ✅ Prevent caching
         }
-        for tender in data.get("opportunitiesData", [])
-    ]
 
-    return {"total_tenders": data.get("totalRecords", 0), "tenders": tenders}
+        # ✅ Debugging: Print the exact API request URL in logs
+        print(f"Fetching tenders from: {SAM_BASE_URL}?{params}")
+
+        response = requests.get(SAM_BASE_URL, params=params)
+
+        if response.status_code != 200:
+            return {"error": response.status_code, "message": response.text}
+
+        data = response.json()
+
+        # ✅ Extract relevant fields
+        tenders.extend([
+            {
+                "title": tender.get("title", "N/A"),
+                "solicitationNumber": tender.get("solicitationNumber", "N/A"),
+                "postedDate": tender.get("postedDate", "N/A"),
+                "responseDeadline": tender.get("responseDeadLine", "N/A"),
+                "naicsCode": tender.get("naicsCode", "N/A"),
+                "uiLink": tender.get("uiLink", "N/A")
+            }
+            for tender in data.get("opportunitiesData", [])
+        ])
+
+    return {"total_tenders": len(tenders), "tenders": tenders}
+
