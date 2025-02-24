@@ -33,11 +33,12 @@ def get_sam_tenders(
     for page in range(pages):  # ✅ Fetch multiple pages to get different tenders
         params = {
             "api_key": SAM_API_KEY,
-            "keywords": keyword,  # ✅ Ensures the filter applies
+            "q": keyword,  # ✅ Use "q" instead of "keywords"
             "postedFrom": posted_from,
             "postedTo": posted_to,
             "limit": min(limit, 1000),
             "start": page * limit,  # ✅ Pagination fix
+            "isActive": "true",  # ✅ Ensure only open tenders are fetched
             "nocache": datetime.utcnow().strftime("%Y%m%d%H%M%S")  # ✅ Prevent caching
         }
 
@@ -65,4 +66,5 @@ def get_sam_tenders(
         ])
 
     return {"total_tenders": len(tenders), "tenders": tenders}
+
 
